@@ -3,7 +3,6 @@ package sgo
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"reflect"
 	"strings"
 
@@ -11,7 +10,7 @@ import (
 	"github.com/lann/builder"
 )
 
-type Muppet struct {
+type Chain struct {
 	TableName string
 	Selector  string
 	Columns   string
@@ -19,39 +18,39 @@ type Muppet struct {
 
 var session *sql.DB
 
-type muppetBuilder builder.Builder
+type queryBuilder builder.Builder
 
-func Open(driver string, username string, password string, db string) muppetBuilder {
+func Open(driver string, username string, password string, db string) (queryBuilder, error) {
 	dataSourceName := username + ":" + password + "@/" + db
+	var query = queryBuilder{}
 	conn, err := sql.Open(driver, dataSourceName)
 	if err != nil {
-		log.Fatal(err)
+		return query, err
 	}
 	session = conn
-	var query = muppetBuilder{}
-	return query
+	return query, err
 }
 
-func (b muppetBuilder) Table(name string) muppetBuilder {
-	return builder.Set(b, "TableName", name).(muppetBuilder)
+func (b queryBuilder) Table(name string) queryBuilder {
+	return builder.Set(b, "TableName", name).(queryBuilder)
 }
 
-func (b muppetBuilder) Where(cond string) muppetBuilder {
-	return builder.Set(b, "Selector", cond).(muppetBuilder)
+func (b queryBuilder) Where(cond string) queryBuilder {
+	return builder.Set(b, "Selector", cond).(queryBuilder)
 }
 
-func (b muppetBuilder) And(cond string) muppetBuilder {
+func (b queryBuilder) And(cond string) queryBuilder {
 	andCond, _ := builder.Get(b, "Selector")
 	andCond = andCond.(string) + " AND " + cond
 
-	return builder.Set(b, "Selector", andCond.(string)).(muppetBuilder)
+	return builder.Set(b, "Selector", andCond.(string)).(queryBuilder)
 }
 
-func (b muppetBuilder) Or(cond string) muppetBuilder {
+func (b queryBuilder) Or(cond string) queryBuilder {
 	orCond, _ := builder.Get(b, "Selector")
 	orCond = orCond.(string) + " OR " + cond
 
-	return builder.Set(b, "Selector", orCond.(string)).(muppetBuilder)
+	return builder.Set(b, "Selector", orCond.(string)).(queryBuilder)
 }
 
 func cols(s interface{}) []string {
@@ -65,27 +64,27 @@ func cols(s interface{}) []string {
 	return cols
 }
 
-func (b muppetBuilder) Get(t interface{}) Muppet {
+func (b queryBuilder) Get(t interface{}) (error, Chain) {
 	tablename, _ := builder.Get(b, "TableName")
 	selectors, _ := builder.Get(b, "Selector")
 
 	query := fmt.Sprintf("SELECT %s FROM %s WHERE %s", strings.Join(cols(t), ", "), tablename.(string), selectors.(string))
 	rows, err := session.Query(query)
 	if err != nil {
-		log.Fatal(err)
+		return err, builder.GetStruct(b).(Chain)
 	}
 	defer rows.Close()
 
 	for rows.Next() {
-		err = sqlstruct.Scan(t, rows)
+		err := sqlstruct.Scan(t, rows)
 		if err != nil {
-			log.Fatal(err)
+			return err, builder.GetStruct(b).(Chain)
 		}
 	}
-	return builder.GetStruct(b).(Muppet)
+	return err, builder.GetStruct(b).(Chain)
 }
 
-func (b muppetBuilder) Insert(t interface{}) Muppet {
+func (b queryBuilder) Insert(t interface{}) (error, Chain) {
 	tablename, _ := builder.Get(b, "TableName")
 
 	v := reflect.ValueOf(t).Elem()
@@ -96,15 +95,14 @@ func (b muppetBuilder) Insert(t interface{}) Muppet {
 	}
 
 	query := fmt.Sprintf("INSERT INTO %s (%s)  VALUES (%s)", tablename.(string), strings.Join(cols(t), ", "), strings.Join(values, ", "))
-	stmnt, err := session.Exec(query)
+	_, err := session.Exec(query)
 	if err != nil {
-		log.Fatal(err)
+		return err, builder.GetStruct(b).(Chain)
 	}
-	fmt.Println(stmnt.RowsAffected())
-	return builder.GetStruct(b).(Muppet)
+	return err, builder.GetStruct(b).(Chain)
 }
 
-func (b muppetBuilder) Update(t interface{}) Muppet {
+func (b queryBuilder) Update(t interface{}) (error, Chain) {
 	tablename, _ := builder.Get(b, "TableName")
 	selectors, _ := builder.Get(b, "Selector")
 
@@ -121,27 +119,25 @@ func (b muppetBuilder) Update(t interface{}) Muppet {
 	}
 
 	query := fmt.Sprintf("UPDATE %s SET %s WHERE %s", tablename.(string), strings.Join(updateQuery, ", "), selectors.(string))
-	stmnt, err := session.Exec(query)
+	_, err := session.Exec(query)
 	if err != nil {
-		log.Fatal(err)
+		return err, builder.GetStruct(b).(Chain)
 	}
-	fmt.Println(stmnt.RowsAffected())
 
-	return builder.GetStruct(b).(Muppet)
+	return err, builder.GetStruct(b).(Chain)
 }
 
-func (b muppetBuilder) Delete(t interface{}) Muppet {
+func (b queryBuilder) Delete(t interface{}) (error, Chain) {
 	tablename, _ := builder.Get(b, "TableName")
 	selectors, _ := builder.Get(b, "Selector")
 
 	query := fmt.Sprintf("DELETE FROM %s WHERE %s", tablename.(string), selectors.(string))
-	stmnt, err := session.Exec(query)
+	_, err := session.Exec(query)
 	if err != nil {
-		log.Fatal(err)
+		return err, builder.GetStruct(b).(Chain)
 	}
-	fmt.Println(stmnt.RowsAffected())
 
-	return builder.GetStruct(b).(Muppet)
+	return err, builder.GetStruct(b).(Chain)
 }
 
-var MuppetBuilder = builder.Register(muppetBuilder{}, Muppet{}).(muppetBuilder)
+var ChainBuilder = builder.Register(queryBuilder{}, Chain{}).(queryBuilder)
