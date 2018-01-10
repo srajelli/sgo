@@ -67,10 +67,7 @@ func TestUpdate(t *testing.T) {
 	}
 }
 func TestDelete(t *testing.T) {
-	user := User{}
-	user.Plan = "pro"
-
-	err := session.Table("users").Where("plan = 'pro'").Delete(&user)
+	err := session.Table("users").Where("plan = 'pro'").Delete()
 	if err != nil {
 		t.Fatalf("sgo.Delete: Error: %s\n", err)
 	}

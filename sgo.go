@@ -137,7 +137,7 @@ func (b QueryBuilder) Update(t interface{}) error {
 	return err
 }
 
-func (b QueryBuilder) Delete(t interface{}) error {
+func (b QueryBuilder) Delete() error {
 	tablename, _ := builder.Get(b, "TableName")
 	selectors, _ := builder.Get(b, "Selector")
 
