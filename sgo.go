@@ -18,11 +18,11 @@ type Chain struct {
 
 var session *sql.DB
 
-type queryBuilder builder.Builder
+type QueryBuilder builder.Builder
 
-func Open(driver string, username string, password string, db string) (queryBuilder, error) {
-	dataSourceName := username + ":" + password + "@/" + db
-	var query = queryBuilder{}
+func Open(driver string, dataSourceName string) (QueryBuilder, error) {
+	//dataSourceName := username + ":" + password + "@/" + db
+	var query = QueryBuilder{}
 	conn, err := sql.Open(driver, dataSourceName)
 	if err != nil {
 		return query, err
@@ -31,26 +31,36 @@ func Open(driver string, username string, password string, db string) (queryBuil
 	return query, err
 }
 
-func (b queryBuilder) Table(name string) queryBuilder {
-	return builder.Set(b, "TableName", name).(queryBuilder)
+func (b QueryBuilder) Close() error {
+	err := session.Close()
+	return err
 }
 
-func (b queryBuilder) Where(cond string) queryBuilder {
-	return builder.Set(b, "Selector", cond).(queryBuilder)
+func (b QueryBuilder) Exec(query string) (sql.Result, error) {
+	resp, err := session.Exec(query)
+	return resp, err
 }
 
-func (b queryBuilder) And(cond string) queryBuilder {
+func (b QueryBuilder) Table(name string) QueryBuilder {
+	return builder.Set(b, "TableName", name).(QueryBuilder)
+}
+
+func (b QueryBuilder) Where(cond string) QueryBuilder {
+	return builder.Set(b, "Selector", cond).(QueryBuilder)
+}
+
+func (b QueryBuilder) And(cond string) QueryBuilder {
 	andCond, _ := builder.Get(b, "Selector")
 	andCond = andCond.(string) + " AND " + cond
 
-	return builder.Set(b, "Selector", andCond.(string)).(queryBuilder)
+	return builder.Set(b, "Selector", andCond.(string)).(QueryBuilder)
 }
 
-func (b queryBuilder) Or(cond string) queryBuilder {
+func (b QueryBuilder) Or(cond string) QueryBuilder {
 	orCond, _ := builder.Get(b, "Selector")
 	orCond = orCond.(string) + " OR " + cond
 
-	return builder.Set(b, "Selector", orCond.(string)).(queryBuilder)
+	return builder.Set(b, "Selector", orCond.(string)).(QueryBuilder)
 }
 
 func cols(s interface{}) []string {
@@ -64,27 +74,27 @@ func cols(s interface{}) []string {
 	return cols
 }
 
-func (b queryBuilder) Get(t interface{}) (error, Chain) {
+func (b QueryBuilder) Get(t interface{}) error {
 	tablename, _ := builder.Get(b, "TableName")
 	selectors, _ := builder.Get(b, "Selector")
 
 	query := fmt.Sprintf("SELECT %s FROM %s WHERE %s", strings.Join(cols(t), ", "), tablename.(string), selectors.(string))
 	rows, err := session.Query(query)
 	if err != nil {
-		return err, builder.GetStruct(b).(Chain)
+		return err
 	}
 	defer rows.Close()
 
 	for rows.Next() {
 		err := sqlstruct.Scan(t, rows)
 		if err != nil {
-			return err, builder.GetStruct(b).(Chain)
+			return err
 		}
 	}
-	return err, builder.GetStruct(b).(Chain)
+	return err
 }
 
-func (b queryBuilder) Insert(t interface{}) (error, Chain) {
+func (b QueryBuilder) Insert(t interface{}) error {
 	tablename, _ := builder.Get(b, "TableName")
 
 	v := reflect.ValueOf(t).Elem()
@@ -97,12 +107,12 @@ func (b queryBuilder) Insert(t interface{}) (error, Chain) {
 	query := fmt.Sprintf("INSERT INTO %s (%s)  VALUES (%s)", tablename.(string), strings.Join(cols(t), ", "), strings.Join(values, ", "))
 	_, err := session.Exec(query)
 	if err != nil {
-		return err, builder.GetStruct(b).(Chain)
+		return err
 	}
-	return err, builder.GetStruct(b).(Chain)
+	return err
 }
 
-func (b queryBuilder) Update(t interface{}) (error, Chain) {
+func (b QueryBuilder) Update(t interface{}) error {
 	tablename, _ := builder.Get(b, "TableName")
 	selectors, _ := builder.Get(b, "Selector")
 
@@ -121,23 +131,23 @@ func (b queryBuilder) Update(t interface{}) (error, Chain) {
 	query := fmt.Sprintf("UPDATE %s SET %s WHERE %s", tablename.(string), strings.Join(updateQuery, ", "), selectors.(string))
 	_, err := session.Exec(query)
 	if err != nil {
-		return err, builder.GetStruct(b).(Chain)
+		return err
 	}
 
-	return err, builder.GetStruct(b).(Chain)
+	return err
 }
 
-func (b queryBuilder) Delete(t interface{}) (error, Chain) {
+func (b QueryBuilder) Delete(t interface{}) error {
 	tablename, _ := builder.Get(b, "TableName")
 	selectors, _ := builder.Get(b, "Selector")
 
 	query := fmt.Sprintf("DELETE FROM %s WHERE %s", tablename.(string), selectors.(string))
 	_, err := session.Exec(query)
 	if err != nil {
-		return err, builder.GetStruct(b).(Chain)
+		return err
 	}
 
-	return err, builder.GetStruct(b).(Chain)
+	return err
 }
 
-var ChainBuilder = builder.Register(queryBuilder{}, Chain{}).(queryBuilder)
+var ChainBuilder = builder.Register(QueryBuilder{}, Chain{}).(QueryBuilder)
