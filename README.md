@@ -2,6 +2,9 @@
 
 sgo provides easy and fun way to interact with sql database
 
+[![Build Status](https://travis-ci.org/srajelli/sgo.svg?branch=master)](https://travis-ci.org/srajelli/sgo)
+[![Go Report Card](https://goreportcard.com/badge/github.com/srajelli/sgo)](https://goreportcard.com/report/github.com/srajelli/sgo)
+
 ### Installation
 ```
 go get github.com/srajelli/sgo
