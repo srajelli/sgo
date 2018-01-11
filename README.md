@@ -10,6 +10,10 @@ sgo provides easy and fun way to interact with sql database
 go get github.com/srajelli/sgo
 ```
 ### Usage
+Open a DB connection
+```go
+db, err := sgo.Open("mysql", "username", "pass", "dbname")
+```
 Just define tag names to your fields. Tag names is equal to column names of the table
 ```go
 type User struct {
