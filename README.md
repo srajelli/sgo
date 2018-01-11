@@ -12,7 +12,7 @@ go get github.com/srajelli/sgo
 ### Usage
 Open a DB connection
 ```go
-db, err := sgo.Open("mysql", "root:18561856@/mydb")
+db, err := sgo.Open("mysql", "username:pass@/dbname")
 ```
 Just define tag names to your fields. Tag names is equal to column names of the table
 ```go
