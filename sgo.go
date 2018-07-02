@@ -2,6 +2,7 @@ package sgo
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -92,6 +93,51 @@ func (b QueryBuilder) Get(t interface{}) error {
 		}
 	}
 	return err
+}
+func scan(u interface{}) []interface{} {
+	val := reflect.ValueOf(u).Elem()
+	v := make([]interface{}, val.NumField())
+	for i := 0; i < val.NumField(); i++ {
+		valueField := val.Field(i)
+		v[i] = valueField.Addr().Interface()
+	}
+	return v
+}
+
+func (b QueryBuilder) All(t interface{}) (string, error) {
+	tablename, _ := builder.Get(b, "TableName")
+	selectors, _ := builder.Get(b, "Selector")
+
+	query := fmt.Sprintf("SELECT %s FROM %s WHERE %s", strings.Join(cols(t), ", "), tablename.(string), selectors.(string))
+	rows, err := session.Query(query)
+	if err != nil {
+		return "", err
+	}
+	defer rows.Close()
+
+	allLogs := scan(t)
+	result := scan(t)
+
+	for rows.Next() {
+		err := rows.Scan(allLogs...)
+		if err != nil {
+			return "", err
+		}
+		result = append(result, t)
+	}
+
+	out, _ := json.Marshal(result)
+	return string(out), err
+}
+
+func (b QueryBuilder) Count(query string) *sql.Row {
+	rows := session.QueryRow(query)
+	return rows
+}
+
+func (b QueryBuilder) Query(query string) (*sql.Rows, error) {
+	rows, err := session.Query(query)
+	return rows, err
 }
 
 func (b QueryBuilder) Insert(t interface{}) error {
